@@ -2,11 +2,10 @@ from __future__ import division
 import os
 import time
 import math
-from glob import glob
 import tensorflow as tf
 import numpy as np
 from six.moves import xrange
-
+from tensorflow import gfile
 from ops import *
 from utils import *
 
@@ -18,7 +17,7 @@ class DCGAN(object):
          batch_size=64, sample_num = 64, output_height=64, output_width=64,
          y_dim=None, z_dim=100, gf_dim=64, df_dim=64,
          gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='default',
-         input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None):
+         input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None, data_dir=None):
     """
 
     Args:
@@ -43,7 +42,7 @@ class DCGAN(object):
     self.input_width = input_width
     self.output_height = output_height
     self.output_width = output_width
-
+    self.data_dir = data_dir
     self.y_dim = y_dim
     self.z_dim = z_dim
 
@@ -81,7 +80,7 @@ class DCGAN(object):
     if self.is_crop:
       image_dims = [self.output_height, self.output_width, self.c_dim]
     else:
-      image_dims = [self.input_height, self.input_width, self.c_dim]
+      image_dims = [self.input_height, self.input_height, self.c_dim]
 
     self.inputs = tf.placeholder(
       tf.float32, [self.batch_size] + image_dims, name='real_images')
@@ -147,7 +146,7 @@ class DCGAN(object):
     if config.dataset == 'mnist':
       data_X, data_y = self.load_mnist()
     else:
-      data = glob(os.path.join("./data", config.dataset, self.input_fname_pattern))
+      data = gfile.Glob(os.path.join(config.data_dir, config.dataset, self.input_fname_pattern))
     #np.random.shuffle(data)
 
     d_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
@@ -163,7 +162,7 @@ class DCGAN(object):
       self.G_sum, self.d_loss_fake_sum, self.g_loss_sum])
     self.d_sum = merge_summary(
         [self.z_sum, self.d_sum, self.d_loss_real_sum, self.d_loss_sum])
-    self.writer = SummaryWriter("./logs", self.sess.graph)
+    self.writer = SummaryWriter(config.log_dir, self.sess.graph)
 
     sample_z = np.random.uniform(-1, 1, size=(self.sample_num , self.z_dim))
     
@@ -197,8 +196,8 @@ class DCGAN(object):
       if config.dataset == 'mnist':
         batch_idxs = min(len(data_X), config.train_size) // config.batch_size
       else:      
-        data = glob(os.path.join(
-          "./data", config.dataset, self.input_fname_pattern))
+        data = gfile.Glob(os.path.join(
+          config.data_dir, config.dataset, self.input_fname_pattern))
         batch_idxs = min(len(data), config.train_size) // config.batch_size
 
       for idx in xrange(0, batch_idxs):
@@ -294,7 +293,7 @@ class DCGAN(object):
               }
             )
             save_images(samples, [8, 8],
-                  './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
+                  '{}/{}/train_{:02d}_{:04d}.png'.format(config.data_dir, config.sample_dir, epoch, idx))
             print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss)) 
           else:
             try:
@@ -306,7 +305,7 @@ class DCGAN(object):
                 },
               )
               save_images(samples, [8, 8],
-                    './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
+                    '{}/{}/train_{:02d}_{:04d}.png'.format(config.data_dir, config.sample_dir, epoch, idx))
               print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss)) 
             except:
               print("one pic error!...")
@@ -457,21 +456,21 @@ class DCGAN(object):
         return tf.nn.sigmoid(deconv2d(h2, [self.batch_size, s_h, s_w, self.c_dim], name='g_h3'))
 
   def load_mnist(self):
-    data_dir = os.path.join("./data", self.dataset_name)
+    data_dir = os.path.join(self.data_dir, self.dataset_name)
     
-    fd = open(os.path.join(data_dir,'train-images-idx3-ubyte'))
+    fd = gfile.Open(os.path.join(data_dir,'train-images-idx3-ubyte'))
     loaded = np.fromfile(file=fd,dtype=np.uint8)
     trX = loaded[16:].reshape((60000,28,28,1)).astype(np.float)
 
-    fd = open(os.path.join(data_dir,'train-labels-idx1-ubyte'))
+    fd = gfile.Open(os.path.join(data_dir,'train-labels-idx1-ubyte'))
     loaded = np.fromfile(file=fd,dtype=np.uint8)
     trY = loaded[8:].reshape((60000)).astype(np.float)
 
-    fd = open(os.path.join(data_dir,'t10k-images-idx3-ubyte'))
+    fd = gfile.Open(os.path.join(data_dir,'t10k-images-idx3-ubyte'))
     loaded = np.fromfile(file=fd,dtype=np.uint8)
     teX = loaded[16:].reshape((10000,28,28,1)).astype(np.float)
 
-    fd = open(os.path.join(data_dir,'t10k-labels-idx1-ubyte'))
+    fd = gfile.Open(os.path.join(data_dir,'t10k-labels-idx1-ubyte'))
     loaded = np.fromfile(file=fd,dtype=np.uint8)
     teY = loaded[8:].reshape((10000)).astype(np.float)
 
@@ -501,18 +500,18 @@ class DCGAN(object):
       
   def save(self, checkpoint_dir, step):
     model_name = "DCGAN.model"
-    checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+    checkpoint_dir = os.path.join(self.data_dir, checkpoint_dir, self.model_dir)
 
-    if not os.path.exists(checkpoint_dir):
-      os.makedirs(checkpoint_dir)
+    if not gfile.Exists(checkpoint_dir):
+      gfile.MakeDirs(checkpoint_dir)
 
     self.saver.save(self.sess,
-            os.path.join(checkpoint_dir, model_name),
+            os.path.join(self.data_dir, checkpoint_dir, model_name),
             global_step=step)
 
   def load(self, checkpoint_dir):
     print(" [*] Reading checkpoints...")
-    checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+    checkpoint_dir = os.path.join(self.data_dir, checkpoint_dir, self.model_dir)
 
     ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
     if ckpt and ckpt.model_checkpoint_path:

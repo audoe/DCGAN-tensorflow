@@ -13,23 +13,31 @@ from six.moves import xrange
 
 pp = pprint.PrettyPrinter()
 
+from six.moves import xrange  # pylint: disable=redefined-builtin
+import tensorflow as tf
+import tensorflow.contrib.slim as slim
+from tensorflow.python.lib.io import file_io
+
 get_stddev = lambda x, k_h, k_w: 1/math.sqrt(k_w*k_h*x.get_shape()[-1])
 
 def get_image(image_path, input_height, input_width,
               resize_height=64, resize_width=64,
               is_crop=True, is_grayscale=False):
-  image = imread(image_path, is_grayscale)
+  f = file_io.FileIO(image_path, 'r') 
+  image = imread(f, is_grayscale)
   return transform(image, input_height, input_width,
                    resize_height, resize_width, is_crop)
 
 def save_images(images, size, image_path):
-  return imsave(inverse_transform(images), size, image_path)
+  f = file_io.FileIO(image_path, 'w') 
+  return imsave(inverse_transform(images), size, f)
 
 def imread(path, is_grayscale = False):
+  f = file_io.FileIO(path, 'r') 
   if (is_grayscale):
-    return scipy.misc.imread(path, flatten = True).astype(np.float)
+    return scipy.misc.imread(f, flatten = True).astype(np.float)
   else:
-    return scipy.misc.imread(path).astype(np.float)
+    return scipy.misc.imread(f).astype(np.float)
 
 def merge_images(images, size):
   return inverse_transform(images)
@@ -44,7 +52,8 @@ def merge(images, size):
   return img
 
 def imsave(images, size, path):
-  return scipy.misc.imsave(path, merge(images, size))
+  f = file_io.FileIO(path, 'r') 
+  return scipy.misc.imsave(f, merge(images, size))
 
 def center_crop(x, crop_h, crop_w,
                 resize_h=64, resize_w=64):
@@ -70,7 +79,8 @@ def inverse_transform(images):
   return (images+1.)/2.
 
 def to_json(output_path, *layers):
-  with open(output_path, "w") as layer_f:
+
+  with file_io.FileIO(output_path, 'w') as layer_f:
     lines = ""
     for w, b, bn in layers:
       layer_idx = w.name.split('/')[0].split('h')[1]
@@ -154,7 +164,7 @@ def visualize(sess, dcgan, config, option):
   if option == 0:
     z_sample = np.random.uniform(-0.5, 0.5, size=(config.batch_size, dcgan.z_dim))
     samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
-    save_images(samples, [image_frame_dim, image_frame_dim], './samples/test_%s.png' % strftime("%Y-%m-%d %H:%M:%S", gmtime()))
+    save_images(samples, [image_frame_dim, image_frame_dim], os.path.join(config.data_dir, "sample", 'test_%s.png' % strftime("%Y-%m-%d %H:%M:%S", gmtime())))
   elif option == 1:
     values = np.arange(0, 1, 1./config.batch_size)
     for idx in xrange(100):
@@ -172,7 +182,7 @@ def visualize(sess, dcgan, config, option):
       else:
         samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
 
-      save_images(samples, [image_frame_dim, image_frame_dim], './samples/test_arange_%s.png' % (idx))
+      save_images(samples, [image_frame_dim, image_frame_dim], os.path.join(config.data_dir, "sample", 'test_arange_%s.png' % (idx)))
   elif option == 2:
     values = np.arange(0, 1, 1./config.batch_size)
     for idx in [random.randint(0, 99) for _ in xrange(100)]:
@@ -193,9 +203,9 @@ def visualize(sess, dcgan, config, option):
         samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
 
       try:
-        make_gif(samples, './samples/test_gif_%s.gif' % (idx))
+        make_gif(samples, os.path.join(config.data_dir, "sample", 'test_gif_%s.gif' % (idx)))
       except:
-        save_images(samples, [image_frame_dim, image_frame_dim], './samples/test_%s.png' % strftime("%Y-%m-%d %H:%M:%S", gmtime()))
+        save_images(samples, [image_frame_dim, image_frame_dim], os.path.join(config.data_dir, "sample", 'test_%s.png' % strftime("%Y-%m-%d %H:%M:%S", gmtime())))
   elif option == 3:
     values = np.arange(0, 1, 1./config.batch_size)
     for idx in xrange(100):
@@ -205,7 +215,7 @@ def visualize(sess, dcgan, config, option):
         z[idx] = values[kdx]
 
       samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
-      make_gif(samples, './samples/test_gif_%s.gif' % (idx))
+      make_gif(samples, os.path.join(config.data_dir, "sample", 'test_gif_%s.gif' % (idx)))
   elif option == 4:
     image_set = []
     values = np.arange(0, 1, 1./config.batch_size)
@@ -216,8 +226,8 @@ def visualize(sess, dcgan, config, option):
       for kdx, z in enumerate(z_sample): z[idx] = values[kdx]
 
       image_set.append(sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample}))
-      make_gif(image_set[-1], './samples/test_gif_%s.gif' % (idx))
+      make_gif(image_set[-1], os.path.join(config.data_dir, "sample", 'test_gif_%s.gif' % (idx)))
 
     new_image_set = [merge(np.array([images[idx] for images in image_set]), [10, 10]) \
         for idx in range(64) + range(63, -1, -1)]
-    make_gif(new_image_set, './samples/test_gif_merged.gif', duration=8)
+    make_gif(new_image_set, os.path.join(config.data_dir, "sample", 'test_gif_merged.gif'), duration=8)

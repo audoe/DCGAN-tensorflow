@@ -1,7 +1,7 @@
 import os
 import scipy.misc
 import numpy as np
-
+from tensorflow import gfile
 from model import DCGAN
 from utils import pp, visualize, to_json
 
@@ -22,6 +22,8 @@ flags.DEFINE_string("dataset", "celebA", "The name of dataset [celebA, mnist, ls
 flags.DEFINE_string("input_fname_pattern", "*.jpg", "Glob pattern of filename of input images [*]")
 flags.DEFINE_string("checkpoint_dir", "checkpoint", "Directory name to save the checkpoints [checkpoint]")
 flags.DEFINE_string("sample_dir", "samples", "Directory name to save the image samples [samples]")
+flags.DEFINE_string("data_dir", "./", "Directory name to save the image samples [samples]")
+
 flags.DEFINE_boolean("is_train", False, "True for training, False for testing [False]")
 flags.DEFINE_boolean("is_crop", False, "True for training, False for testing [False]")
 flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
@@ -34,11 +36,13 @@ def main(_):
     FLAGS.input_width = FLAGS.input_height
   if FLAGS.output_width is None:
     FLAGS.output_width = FLAGS.output_height
-
-  if not os.path.exists(FLAGS.checkpoint_dir):
-    os.makedirs(FLAGS.checkpoint_dir)
-  if not os.path.exists(FLAGS.sample_dir):
-    os.makedirs(FLAGS.sample_dir)
+  checkpoint_dir = os.path.join(FLAGS.data_dir, FLAGS.checkpoint_dir)
+  sample_dir = os.path.join(FLAGS.data_dir, FLAGS.sample_dir)
+  data_dir = FLAGS.data_dir
+  if not gfile.Exists(checkpoint_dir):
+    gfile.MakeDirs(checkpoint_dir)
+  if not gfile.Exists(sample_dir):
+    gfile.MakeDirs(sample_dir)
 
   #gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333)
   run_config = tf.ConfigProto()
@@ -58,8 +62,9 @@ def main(_):
           dataset_name=FLAGS.dataset,
           input_fname_pattern=FLAGS.input_fname_pattern,
           is_crop=FLAGS.is_crop,
-          checkpoint_dir=FLAGS.checkpoint_dir,
-          sample_dir=FLAGS.sample_dir)
+          checkpoint_dir=checkpoint_dir,
+          sample_dir=sample_dir,
+          data_dir=data_dir)
     else:
       dcgan = DCGAN(
           sess,
@@ -72,8 +77,9 @@ def main(_):
           dataset_name=FLAGS.dataset,
           input_fname_pattern=FLAGS.input_fname_pattern,
           is_crop=FLAGS.is_crop,
-          checkpoint_dir=FLAGS.checkpoint_dir,
-          sample_dir=FLAGS.sample_dir)
+          checkpoint_dir=checkpoint_dir,
+          sample_dir=sample_dir,
+          data_dir=data_dir)
 
     if FLAGS.is_train:
       dcgan.train(FLAGS)
