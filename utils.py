@@ -6,8 +6,11 @@ import math
 import json
 import random
 import pprint
-import scipy.misc
+from scipy.misc import imread
+import scipy.misc 
+
 import numpy as np
+import numpy
 from time import gmtime, strftime
 from six.moves import xrange
 
@@ -23,21 +26,23 @@ get_stddev = lambda x, k_h, k_w: 1/math.sqrt(k_w*k_h*x.get_shape()[-1])
 def get_image(image_path, input_height, input_width,
               resize_height=64, resize_width=64,
               is_crop=True, is_grayscale=False):
-  f = file_io.FileIO(image_path, 'r') 
-  image = imread(f, is_grayscale)
+  image = _imread(image_path, is_grayscale)
   return transform(image, input_height, input_width,
                    resize_height, resize_width, is_crop)
 
 def save_images(images, size, image_path):
-  f = file_io.FileIO(image_path, 'w') 
-  return imsave(inverse_transform(images), size, f)
+  return imsave(inverse_transform(images), size, image_path)
 
-def imread(path, is_grayscale = False):
-  f = file_io.FileIO(path, 'r') 
+def _imread(path, is_grayscale = False):
   if (is_grayscale):
-    return scipy.misc.imread(f, flatten = True).astype(np.float)
+    f = file_io.FileIO(path, 'r')
+    m = imread(f, flatten = True)
+    return m.astype(np.float)
   else:
-    return scipy.misc.imread(f).astype(np.float)
+    f = file_io.FileIO(path, 'r')
+    m = imread(f)
+    return m.astype(np.float)
+    # .astype(np.float)
 
 def merge_images(images, size):
   return inverse_transform(images)
@@ -52,7 +57,7 @@ def merge(images, size):
   return img
 
 def imsave(images, size, path):
-  f = file_io.FileIO(path, 'r') 
+  f = file_io.FileIO(path, 'w')
   return scipy.misc.imsave(f, merge(images, size))
 
 def center_crop(x, crop_h, crop_w,

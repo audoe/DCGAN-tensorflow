@@ -500,7 +500,7 @@ class DCGAN(object):
       
   def save(self, checkpoint_dir, step):
     model_name = "DCGAN.model"
-    checkpoint_dir = os.path.join(self.data_dir, checkpoint_dir, self.model_dir)
+    checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
 
     if not gfile.Exists(checkpoint_dir):
       gfile.MakeDirs(checkpoint_dir)
